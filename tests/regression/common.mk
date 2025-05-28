@@ -39,7 +39,8 @@ VX_CP  = $(LLVM_VORTEX)/bin/llvm-objcopy
 #VX_CP  = $(RISCV_TOOLCHAIN_PATH)/bin/$(RISCV_PREFIX)-objcopy
 
 VX_CFLAGS += -O3 -mcmodel=medany -fno-rtti -fno-exceptions -nostartfiles -nostdlib -fdata-sections -ffunction-sections
-VX_CFLAGS += -I$(VORTEX_HOME)/kernel/include -I$(ROOT_DIR)/hw
+# updated standard library path for kernel code
+VX_CFLAGS += -I$(VORTEX_HOME)/kernel/include -I$(ROOT_DIR)/hw -I$(VORTEX_HOME)/sim/common
 VX_CFLAGS += -DXLEN_$(XLEN)
 VX_CFLAGS += -DNDEBUG
 
@@ -51,7 +52,8 @@ VX_LIBS += $(LIBCRT_VORTEX)/lib/baremetal/libclang_rt.builtins-riscv$(XLEN).a
 VX_LDFLAGS += -Wl,-Bstatic,--gc-sections,-T,$(VORTEX_HOME)/kernel/scripts/link$(XLEN).ld,--defsym=STARTUP_ADDR=$(STARTUP_ADDR) $(VORTEX_KN_PATH)/libvortex.a $(VX_LIBS)
 
 CXXFLAGS += -std=c++17 -Wall -Wextra -pedantic -Wfatal-errors
-CXXFLAGS += -I$(VORTEX_HOME)/runtime/include -I$(ROOT_DIR)/hw
+# updated standard library path for host code
+CXXFLAGS += -I$(VORTEX_HOME)/runtime/include -I$(ROOT_DIR)/hw -I$(VORTEX_HOME)/sim/common
 
 LDFLAGS += -L$(VORTEX_RT_PATH) -lvortex
 
