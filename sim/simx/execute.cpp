@@ -1480,6 +1480,7 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
         for (int k = 0; k < 16; k++) {
           sum += Atile[16*m + k] * Btile[16*k + n];
         }
+        DP(3, "sum was " << sum);
         Dtile[16*m + n] = sum + Ctile[16*m + n];
       }
     }

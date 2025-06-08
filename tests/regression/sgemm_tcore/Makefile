@@ -9,6 +9,6 @@ SRCS := $(SRC_DIR)/main.cpp
 
 VX_SRCS := $(SRC_DIR)/kernel.cpp
 
-OPTS ?= -n16
+OPTS ?=
 
 include ../common.mk

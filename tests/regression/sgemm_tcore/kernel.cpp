@@ -4,10 +4,6 @@
 
 #define RISCV_CUSTOM2 0x5B
 
-#define M 16
-#define N 16
-#define K 16
-
 // Assume 16 x 16 x 16 tile and 32 threads
 // Registers [00-07] store A
 // Registers [08-15] store B
@@ -20,8 +16,9 @@
 //        ...              ...
 // [    thread30   ][    thread31   ]
 
-void vx_load_A(const volatile TYPE *addr, int tid) {
-  int offset = tid * 8;
+void vx_load_A(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int offset = 16 * (stride * warp_y + warp_x)
+                  + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f0, %0" :: "m"(addr[offset + 0]) : "f0");
   __asm__ volatile ("flw f1, %0" :: "m"(addr[offset + 1]) : "f1");
   __asm__ volatile ("flw f2, %0" :: "m"(addr[offset + 2]) : "f2");
@@ -32,8 +29,9 @@ void vx_load_A(const volatile TYPE *addr, int tid) {
   __asm__ volatile ("flw f7, %0" :: "m"(addr[offset + 7]) : "f7");
 }
 
-void vx_load_B(const volatile TYPE *addr, int tid) {
-  int offset = tid * 8;
+void vx_load_B(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int offset = 16 * (stride * warp_y + warp_x)
+                  + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f8, %0" :: "m"(addr[offset + 0]) : "f8");
   __asm__ volatile ("flw f9, %0" :: "m"(addr[offset + 1]) : "f9");
   __asm__ volatile ("flw f10, %0" :: "m"(addr[offset + 2]) : "f10");
@@ -44,8 +42,9 @@ void vx_load_B(const volatile TYPE *addr, int tid) {
   __asm__ volatile ("flw f15, %0" :: "m"(addr[offset + 7]) : "f15");
 }
 
-void vx_load_C(const volatile TYPE *addr, int tid) {
-  int offset = tid * 8;
+void vx_load_C(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int offset = 16 * (stride * warp_y + warp_x)
+                  + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f16, %0" :: "m"(addr[offset + 0]) : "f16");
   __asm__ volatile ("flw f17, %0" :: "m"(addr[offset + 1]) : "f17");
   __asm__ volatile ("flw f18, %0" :: "m"(addr[offset + 2]) : "f18");
@@ -65,8 +64,9 @@ void vx_wmma() {
   );
 }
 
-void vx_store_D(volatile TYPE *addr, int tid) {
-  int offset = tid * 8;
+void vx_store_D(volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int offset = 16 * (stride * warp_y + warp_x)
+                  + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("fsw f24, %0" :: "m"(addr[offset + 0]) : "f24");
   __asm__ volatile ("fsw f25, %0" :: "m"(addr[offset + 1]) : "f25");
   __asm__ volatile ("fsw f26, %0" :: "m"(addr[offset + 2]) : "f26");
@@ -83,18 +83,35 @@ void kernel_body(kernel_arg_t *__UNIFORM__ arg) {
   auto B = reinterpret_cast<TYPE *>(arg->B_addr);
   auto C = reinterpret_cast<TYPE *>(arg->C_addr);
 
-  // Initialize C to zeroes
-  for (int i = 0; i < M*N; i++) {
-    C[i] = 0.0;
+  const int M = arg->M;
+  const int N = arg->N;
+  const int K = arg->K;
+
+
+  TYPE *Dtile = reinterpret_cast<TYPE *>(__local_mem(16 * 16 * sizeof(TYPE)));
+  for (int i = 0; i < 8; i++) {
+    Dtile[8 * threadIdx.x + i] = 0.0;
   }
 
-  vx_load_A(A, threadIdx.x);
-  vx_load_B(B, threadIdx.x);
-  vx_load_C(C, threadIdx.x);
+  for (int k = 0; k < K/16; k++) {
+    vx_load_A(A, blockIdx.y, k, K, threadIdx.x);
+    vx_load_B(B, k, blockIdx.x, N, threadIdx.x);
+    vx_load_C(Dtile, 0, 0, 16, threadIdx.x);
+    __syncthreads();
 
-  vx_wmma();
+    vx_wmma();
+    __syncthreads();
 
-  vx_store_D(C, threadIdx.x); // we store back into C
+    vx_store_D(Dtile, 0, 0, 16, threadIdx.x);
+    __syncthreads();
+  }
+
+  // Store Dtile back into C
+  for (int i = 0; i < 8; i++) {
+    int offset = 16 * (N * blockIdx.y + blockIdx.x)
+                    + N * (threadIdx.x / 2) + 8 * (threadIdx.x % 2);
+    C[offset + i] = Dtile[8 * threadIdx.x + i];
+  }
 }
 
 int main() {

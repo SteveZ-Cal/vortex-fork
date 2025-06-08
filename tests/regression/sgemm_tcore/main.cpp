@@ -25,46 +25,6 @@ template <typename Type>
 class Comparator {};
 
 template <>
-class Comparator<int8_t> {
-public:
-  static const char* type_str() {
-    return "int8";
-  }
-  static int8_t generate() {
-    return (int8_t)rand();
-  }
-  static bool compare(int a, int b, int index, int errors) {
-    if (a != b) {
-      if (errors < 100) {
-        printf("*** error: [%d] expected=%d, actual=%d\n", index, b, a);
-      }
-      return false;
-    }
-    return true;
-  }
-};
-
-template <>
-class Comparator<int> {
-public:
-  static const char* type_str() {
-    return "int8";
-  }
-  static int generate() {
-    return (int)rand();
-  }
-  static bool compare(int a, int b, int index, int errors) {
-    if (a != b) {
-      if (errors < 100) {
-        printf("*** error: [%d] expected=%d, actual=%d\n", index, b, a);
-      }
-      return false;
-    }
-    return true;
-  }
-};
-
-template <>
 class Comparator<float> {
 public:
   static const char* type_str() {
@@ -125,15 +85,12 @@ static void parse_args(int argc, char **argv) {
     switch (c) {
     case 'm':
       M = atoi(optarg);
-      M = 16;
       break;
     case 'n':
       N = atoi(optarg);
-      N = 16;
       break;
     case 'k':
       K = atoi(optarg);
-      K = 16;
       break;
     case 'h':
       show_usage();
@@ -157,6 +114,169 @@ void cleanup() {
   }
 }
 
+int main(int argc, char *argv[]) {
+  parse_args(argc, argv);
+  std::srand(50);
+
+  // open device connection
+  std::cout << "open device connection" << std::endl;
+  RT_CHECK(vx_dev_open(&device));
+
+  uint64_t NT;
+  RT_CHECK(vx_dev_caps(device, VX_CAPS_NUM_THREADS, &NT));
+  if (NT != 32) {
+    std::cout << "Error: warp size must be exactly 32 threads" << std::endl;
+    return -1;
+  }
+
+  uint64_t isa_flags;
+  RT_CHECK(vx_dev_caps(device, VX_CAPS_ISA_FLAGS, &isa_flags));
+  uint32_t XlenB = VX_ISA_ARCH(isa_flags) / 8;
+  if (XlenB != 4) {
+    std::cout << "Error: this kernel is made for 32-bit xlen" << std::endl;
+    return -1;
+  }
+  std::cout << "GPU XLEN: " << 8 * XlenB << std::endl;
+
+  uint32_t tileM = 16;
+  uint32_t tileN = 16;
+  uint32_t tileK = 16;
+  std::cout << "GPU tensor tileM=" << tileM << ", tileN=" << tileM << ", tileK=" << tileK << std::endl;
+
+  if ((M % tileM) != 0) {
+    std::cout << "Error: M must be a multiple of tensor tileM!" << std::endl;
+    return -1;
+  }
+  if ((N % tileN) != 0) {
+    std::cout << "Error: N must be a multiple of tensor tileN!" << std::endl;
+    return -1;
+  }
+  if ((K % tileK) != 0) {
+    std::cout << "Error: M must be a multiple of tensor tileK!" << std::endl;
+    return -1;
+  }
+
+  kernel_arg.tileM = tileM;
+  kernel_arg.tileN = tileN;
+  kernel_arg.tileK = tileK;
+
+  size_t sizeA = M * K;
+  size_t sizeB = K * N;
+  size_t sizeC = M * N;
+
+  std::cout << "input data type: " << Comparator<TYPE>::type_str() << " (" << sizeof(TYPE) << " bytes)" << std::endl;
+  std::cout << "output data type: " << Comparator<TYPE>::type_str() << " (" << sizeof(TYPE) << " bytes)" << std::endl;
+  std::cout << "matrix A: " << M << "x" << K << std::endl;
+  std::cout << "matrix B: " << K << "x" << N << std::endl;
+  std::cout << "matrix C: " << M << "x" << N << std::endl;
+
+  // set block size to warp size
+  kernel_arg.grid_dim[0]  = N / tileN;
+  kernel_arg.grid_dim[1]  = M / tileM;
+  kernel_arg.block_dim[0] = NT; // warp size
+  kernel_arg.block_dim[1] = 1;
+
+  // set matrix dimensions
+  kernel_arg.M = M;
+  kernel_arg.N = N;
+  kernel_arg.K = K;
+
+  // allocate device memory
+  std::cout << "allocate device memory" << std::endl;
+  RT_CHECK(vx_mem_alloc(device, sizeA * sizeof(TYPE), VX_MEM_READ, &A_buffer));
+  RT_CHECK(vx_mem_address(A_buffer, &kernel_arg.A_addr));
+  RT_CHECK(vx_mem_alloc(device, sizeB * sizeof(TYPE), VX_MEM_READ, &B_buffer));
+  RT_CHECK(vx_mem_address(B_buffer, &kernel_arg.B_addr));
+  RT_CHECK(vx_mem_alloc(device, sizeC * sizeof(TYPE), VX_MEM_READ_WRITE, &C_buffer));
+  RT_CHECK(vx_mem_address(C_buffer, &kernel_arg.C_addr));
+
+  std::cout << "A_addr=0x" << std::hex << kernel_arg.A_addr << std::endl;
+  std::cout << "B_addr=0x" << std::hex << kernel_arg.B_addr << std::endl;
+  std::cout << "C_addr=0x" << std::hex << kernel_arg.C_addr << std::endl;
+
+  // generate source data
+  std::vector<TYPE> h_A(sizeA);
+  std::vector<TYPE> h_B(sizeB);
+  for (uint32_t i = 0; i < sizeA; ++i) {
+    h_A[i] = Comparator<TYPE>::generate();
+    h_A[i] = 1.0/32;
+    h_A[i] = 0.0;
+  }
+  for (uint32_t i = 0; i < sizeB; ++i) {
+    h_B[i] = Comparator<TYPE>::generate();
+    h_B[i] = 1.0;
+    h_B[i] = 0.0;
+  }
+
+  // upload matrix A buffer
+  {
+    std::cout << "upload matrix A buffer" << std::endl;
+    RT_CHECK(vx_copy_to_dev(A_buffer, h_A.data(), 0, sizeA * sizeof(TYPE)));
+  }
+
+  // upload matrix B buffer
+  {
+    std::cout << "upload matrix B buffer" << std::endl;
+    RT_CHECK(vx_copy_to_dev(B_buffer, h_B.data(), 0, sizeB * sizeof(TYPE)));
+  }
+
+  // upload program
+  std::cout << "upload program" << std::endl;
+  RT_CHECK(vx_upload_kernel_file(device, kernel_file, &krnl_buffer));
+
+  // upload kernel argument
+  std::cout << "upload kernel argument" << std::endl;
+  RT_CHECK(vx_upload_bytes(device, &kernel_arg, sizeof(kernel_arg_t), &args_buffer));
+
+  auto time_start = std::chrono::high_resolution_clock::now();
+
+  // start device
+  std::cout << "start device" << std::endl;
+  RT_CHECK(vx_start(device, krnl_buffer, args_buffer));
+
+  // wait for completion
+  std::cout << "wait for completion" << std::endl;
+  RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
+
+  auto time_end = std::chrono::high_resolution_clock::now();
+  double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
+  printf("Elapsed time: %lg ms\n", elapsed);
+
+  // download destination buffer
+  std::vector<TYPE> h_C(sizeC);
+  std::cout << "download destination buffer" << std::endl;
+  RT_CHECK(vx_copy_from_dev(h_C.data(), C_buffer, 0, sizeC * sizeof(TYPE)));
+
+  // verify result
+  std::cout << "verify result" << std::endl;
+  int errors = 0;
+  {
+    std::vector<TYPE> h_ref(sizeC);
+    matmul_cpu(h_ref.data(), h_A.data(), h_B.data(), M, N, K);
+
+    for (uint32_t i = 0; i < h_ref.size(); ++i) {
+      if (!Comparator<TYPE>::compare(h_C[i], h_ref[i], i, errors)) {
+        ++errors;
+      }
+    }
+  }
+
+  // cleanup
+  std::cout << "cleanup" << std::endl;
+  cleanup();
+
+  if (errors != 0) {
+    std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
+    std::cout << "FAILED!" << std::endl;
+    return errors;
+  }
+
+  std::cout << "PASSED!" << std::endl;
+
+  return 0;
+}
+
+/*
 int main(int argc, char *argv[]) {
   // parse command arguments
   parse_args(argc, argv);
@@ -336,3 +456,4 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+*/
