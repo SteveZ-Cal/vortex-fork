@@ -53,6 +53,7 @@ static const std::unordered_map<Opcode, InstType> sc_instTable = {
   {Opcode::R_W,     InstType::R},
   {Opcode::I_W,     InstType::I},
   {Opcode::TCU,     InstType::I},
+  {Opcode::EXT3,    InstType::R},
 };
 
 static const char* op_string(const Instr &instr) {
@@ -391,6 +392,9 @@ static const char* op_string(const Instr &instr) {
       std::abort();
     }
 
+  case Opcode::EXT3:
+    return "WMMA";
+
   case Opcode::TCU:
     switch(func3)
     {
@@ -580,6 +584,9 @@ std::shared_ptr<Instr> Emulator::decode(uint32_t code) const {
         std::abort();
       }
       break;
+    case Opcode::EXT3:
+        // No source/dest registers
+        break;
     default:
       instr->setDestReg(rd, RegType::Integer);
       instr->addSrcReg(rs1, RegType::Integer);

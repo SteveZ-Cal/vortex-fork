@@ -1434,6 +1434,66 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
       std::abort();
     }
   } break;
+
+  case Opcode::EXT3: {
+    trace->fu_type = FUType::LSU;
+    trace->lsu_type = LsuType::WMMA;
+
+    auto trace_data = std::make_shared<LsuTraceData>(num_threads);
+    trace->data = trace_data;
+
+
+    // Registers [00-07] store A
+    // Registers [08-15] store B
+    // Registers [16-23] store C
+    // Registers [24-31] store D
+    // Thread i direct => row=i/2, cols=[8 * i%2, 8 * i%2 + 8)
+
+    std::vector<float> Atile(16*16, 0.0);
+    std::vector<float> Btile(16*16, 0.0);
+    std::vector<float> Ctile(16*16, 0.0);
+    std::vector<float> Dtile(16*16, 0.0);
+
+    // Load from floating point registers into Atile, Btile, and Ctile
+    for (int row = 0; row < 16; row++) {
+      for (int col = 0; col < 8; col++) {
+        *(uint32_t *)&Atile[16*row + col] = warp.freg_file.at(row * 2).at(col);
+        *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2).at(col + 8);
+        *(uint32_t *)&Ctile[16*row + col] = warp.freg_file.at(row * 2).at(col + 16);
+      }
+      for (int col = 8; col < 16; col++) {
+        *(uint32_t *)&Atile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col - 8);
+        *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col);
+        *(uint32_t *)&Ctile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col + 8);
+      }
+    }
+
+    // Perform matmul
+    for (int m = 0; m < 16; m++) {
+      for (int n = 0; n < 16; n++) {
+        float sum = 0.0;
+        for (int k = 0; k < 16; k++) {
+          sum += Atile[16*m + k] * Btile[16*k + n];
+        }
+        Ctile[16*m + n] += sum;
+      }
+    }
+    DP(3, "Atile[99] = " << Atile[99]);
+    DP(3, "Btile[99] = " << Btile[99]);
+    DP(3, "Ctile[99] = " << Ctile[99]);
+
+    // Store Ctile back into floating point registers
+    for (int row = 0; row < 16; row++) {
+      for (int col = 0; col < 8; col++) {
+        warp.freg_file.at(row * 2).at(col + 24) = *(uint32_t *)&Ctile[16*row + col];
+      }
+      for (int col = 8; col < 16; col++) {
+        warp.freg_file.at(row * 2 + 1).at(col + 16) = *(uint32_t *)&Ctile[16*row + col];
+      }
+    }
+
+  } break;
+
   case Opcode::TCU:
   { //TODO - make it data-type flexible
     uint32_t mem_bytes = 1;
