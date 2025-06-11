@@ -199,13 +199,13 @@ int main(int argc, char *argv[]) {
   std::vector<TYPE> h_B(sizeB);
   for (uint32_t i = 0; i < sizeA; ++i) {
     h_A[i] = Comparator<TYPE>::generate();
-    h_A[i] = 1.0/32;
-    h_A[i] = 0.0;
+    // h_A[i] = 1.0/32;
+    // h_A[i] = 0.0;
   }
   for (uint32_t i = 0; i < sizeB; ++i) {
     h_B[i] = Comparator<TYPE>::generate();
-    h_B[i] = 1.0;
-    h_B[i] = 0.0;
+    // h_B[i] = 1.0;
+    // h_B[i] = 0.0;
   }
 
   // upload matrix A buffer

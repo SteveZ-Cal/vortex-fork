@@ -1460,16 +1460,22 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
     std::vector<float> Dtile(16*16, 0.0);
 
     // Load from floating point registers into Atile, Btile, and Ctile
+    int tg_rows[] = {0, 8, 0, 8, 4, 12, 4, 12};
+    int tg_cols[] = {0, 0, 8, 8, 0,  0, 8,  8};
+    for (int t = 0; t < 32; t++) {
+      int tg = t / 4;
+      int offset = 16 * (tg_rows[tg] + t % 4) + tg_cols[tg];
+      for (int i = 0; i < 8; i++) {
+        *(uint32_t *)&Atile[offset + i] = warp.freg_file.at(t).at(i);
+        *(uint32_t *)&Ctile[offset + i] = warp.freg_file.at(t).at(16 + i);
+      }
+    }
     for (int row = 0; row < 16; row++) {
       for (int col = 0; col < 8; col++) {
-        *(uint32_t *)&Atile[16*row + col] = warp.freg_file.at(row * 2).at(col);
         *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2).at(col + 8);
-        *(uint32_t *)&Ctile[16*row + col] = warp.freg_file.at(row * 2).at(col + 16);
       }
       for (int col = 8; col < 16; col++) {
-        *(uint32_t *)&Atile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col - 8);
         *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col);
-        *(uint32_t *)&Ctile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col + 8);
       }
     }
 
@@ -1480,18 +1486,16 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
         for (int k = 0; k < 16; k++) {
           sum += Atile[16*m + k] * Btile[16*k + n];
         }
-        DP(3, "sum was " << sum);
         Dtile[16*m + n] = sum + Ctile[16*m + n];
       }
     }
 
     // Store Dtile back into floating point registers
-    for (int row = 0; row < 16; row++) {
-      for (int col = 0; col < 8; col++) {
-        warp.freg_file.at(row * 2).at(col + 24) = *(uint32_t *)&Dtile[16*row + col];
-      }
-      for (int col = 8; col < 16; col++) {
-        warp.freg_file.at(row * 2 + 1).at(col + 16) = *(uint32_t *)&Dtile[16*row + col];
+    for (int t = 0; t < 32; t++) {
+      int tg = t / 4;
+      int offset = 16 * (tg_rows[tg] + t % 4) + tg_cols[tg];
+      for (int i = 0; i < 8; i++) {
+         warp.freg_file.at(t).at(24 + i) = *(uint32_t *)&Dtile[offset + i];
       }
     }
 

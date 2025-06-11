@@ -17,8 +17,23 @@
 // [    thread30   ][    thread31   ]
 
 void vx_load_A(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int tg = tid / 4;
+  int tg_row, tg_col;
+  switch (tg) {
+    case 0: tg_row =  0; tg_col =  0; break;
+    case 1: tg_row =  8; tg_col =  0; break;
+    case 2: tg_row =  0; tg_col =  8; break;
+    case 3: tg_row =  8; tg_col =  8; break;
+    case 4: tg_row =  4; tg_col =  0; break;
+    case 5: tg_row = 12; tg_col =  0; break;
+    case 6: tg_row =  4; tg_col =  8; break;
+    case 7: tg_row = 12; tg_col =  8; break;
+  }
   int offset = 16 * (stride * warp_y + warp_x)
-                  + stride * (tid / 2) + 8 * (tid % 2);
+                  + stride * (tg_row + tid % 4) + tg_col;
+
+  // int offset = 16 * (stride * warp_y + warp_x)
+  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f0, %0" :: "m"(addr[offset + 0]) : "f0");
   __asm__ volatile ("flw f1, %0" :: "m"(addr[offset + 1]) : "f1");
   __asm__ volatile ("flw f2, %0" :: "m"(addr[offset + 2]) : "f2");
@@ -43,8 +58,23 @@ void vx_load_B(const volatile TYPE *addr, int warp_x, int warp_y, int stride, in
 }
 
 void vx_load_C(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int tg = tid / 4;
+  int tg_row, tg_col;
+  switch (tg) {
+    case 0: tg_row =  0; tg_col =  0; break;
+    case 1: tg_row =  8; tg_col =  0; break;
+    case 2: tg_row =  0; tg_col =  8; break;
+    case 3: tg_row =  8; tg_col =  8; break;
+    case 4: tg_row =  4; tg_col =  0; break;
+    case 5: tg_row = 12; tg_col =  0; break;
+    case 6: tg_row =  4; tg_col =  8; break;
+    case 7: tg_row = 12; tg_col =  8; break;
+  }
   int offset = 16 * (stride * warp_y + warp_x)
-                  + stride * (tid / 2) + 8 * (tid % 2);
+                  + stride * (tg_row + tid % 4) + tg_col;
+
+  // int offset = 16 * (stride * warp_y + warp_x)
+  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f16, %0" :: "m"(addr[offset + 0]) : "f16");
   __asm__ volatile ("flw f17, %0" :: "m"(addr[offset + 1]) : "f17");
   __asm__ volatile ("flw f18, %0" :: "m"(addr[offset + 2]) : "f18");
@@ -65,8 +95,23 @@ void vx_wmma() {
 }
 
 void vx_store_D(volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
+  int tg = tid / 4;
+  int tg_row, tg_col;
+  switch (tg) {
+    case 0: tg_row =  0; tg_col =  0; break;
+    case 1: tg_row =  8; tg_col =  0; break;
+    case 2: tg_row =  0; tg_col =  8; break;
+    case 3: tg_row =  8; tg_col =  8; break;
+    case 4: tg_row =  4; tg_col =  0; break;
+    case 5: tg_row = 12; tg_col =  0; break;
+    case 6: tg_row =  4; tg_col =  8; break;
+    case 7: tg_row = 12; tg_col =  8; break;
+  }
   int offset = 16 * (stride * warp_y + warp_x)
-                  + stride * (tid / 2) + 8 * (tid % 2);
+                  + stride * (tg_row + tid % 4) + tg_col;
+
+  // int offset = 16 * (stride * warp_y + warp_x)
+  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("fsw f24, %0" :: "m"(addr[offset + 0]) : "f24");
   __asm__ volatile ("fsw f25, %0" :: "m"(addr[offset + 1]) : "f25");
   __asm__ volatile ("fsw f26, %0" :: "m"(addr[offset + 2]) : "f26");
