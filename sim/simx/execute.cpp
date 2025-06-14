@@ -1443,17 +1443,6 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
     trace->data = trace_data;
 
 
-    // Registers [00-07] store A
-    // Registers [08-15] store B
-    // Registers [16-23] store C
-    // Registers [24-31] store D
-    // Thread i => row=i/2, cols=[8 * i%2, 8 * i%2 + 8)
-    // [    thread0    ][    thread1    ]
-    // [    thread2    ][    thread3    ]
-    // [    thread4    ][    thread5    ]
-    //        ...              ...
-    // [    thread30   ][    thread31   ]
-
     std::vector<float> Atile(16*16, 0.0);
     std::vector<float> Btile(16*16, 0.0);
     std::vector<float> Ctile(16*16, 0.0);

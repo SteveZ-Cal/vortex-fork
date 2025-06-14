@@ -5,16 +5,6 @@
 #define RISCV_CUSTOM2 0x5B
 
 // Assume 16 x 16 x 16 tile and 32 threads
-// Registers [00-07] store A
-// Registers [08-15] store B
-// Registers [16-23] store C
-// Registers [24-31] store D
-// Thread i => row=i/2, cols=[8 * i%2, 8 * i%2 + 8)
-// [    thread0    ][    thread1    ]
-// [    thread2    ][    thread3    ]
-// [    thread4    ][    thread5    ]
-//        ...              ...
-// [    thread30   ][    thread31   ]
 
 void vx_load_A(const volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
   int tg = tid / 4;
@@ -32,8 +22,6 @@ void vx_load_A(const volatile TYPE *addr, int warp_x, int warp_y, int stride, in
   int offset = 16 * (stride * warp_y + warp_x)
                   + stride * (tg_row + tid % 4) + tg_col;
 
-  // int offset = 16 * (stride * warp_y + warp_x)
-  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f0, %0" :: "m"(addr[offset + 0]) : "f0");
   __asm__ volatile ("flw f1, %0" :: "m"(addr[offset + 1]) : "f1");
   __asm__ volatile ("flw f2, %0" :: "m"(addr[offset + 2]) : "f2");
@@ -73,8 +61,6 @@ void vx_load_C(const volatile TYPE *addr, int warp_x, int warp_y, int stride, in
   int offset = 16 * (stride * warp_y + warp_x)
                   + stride * (tg_row + tid % 4) + tg_col;
 
-  // int offset = 16 * (stride * warp_y + warp_x)
-  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("flw f16, %0" :: "m"(addr[offset + 0]) : "f16");
   __asm__ volatile ("flw f17, %0" :: "m"(addr[offset + 1]) : "f17");
   __asm__ volatile ("flw f18, %0" :: "m"(addr[offset + 2]) : "f18");
@@ -86,12 +72,13 @@ void vx_load_C(const volatile TYPE *addr, int warp_x, int warp_y, int stride, in
 }
 
 void vx_wmma() {
-  __asm__ volatile (".insn r %0, 0, 0, x0, x0, x0" :: "i"(RISCV_CUSTOM2)
-    : "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
-      "f8",  "f9",  "f10", "f11", "f12", "f13", "f14", "f15",
-      "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
-      "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"
-  );
+  // In real Volta, the wmma instruction is separated into 16 HMMA instructions.
+  // Here, we only need one instruction to achieve the same functionality. To
+  // simulate timing accurately, we perform the operation 16 times (this does
+  // not change the functionality because the instruction is idempotent).
+  for (int i = 0; i < 16; i++) {
+    __asm__ volatile (".insn r %0, 0, 0, x0, x0, x0" :: "i"(RISCV_CUSTOM2));
+  }
 }
 
 void vx_store_D(volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid) {
@@ -110,8 +97,6 @@ void vx_store_D(volatile TYPE *addr, int warp_x, int warp_y, int stride, int tid
   int offset = 16 * (stride * warp_y + warp_x)
                   + stride * (tg_row + tid % 4) + tg_col;
 
-  // int offset = 16 * (stride * warp_y + warp_x)
-  //                 + stride * (tid / 2) + 8 * (tid % 2);
   __asm__ volatile ("fsw f24, %0" :: "m"(addr[offset + 0]) : "f24");
   __asm__ volatile ("fsw f25, %0" :: "m"(addr[offset + 1]) : "f25");
   __asm__ volatile ("fsw f26, %0" :: "m"(addr[offset + 2]) : "f26");
