@@ -1434,6 +1434,62 @@ void Emulator::execute(const Instr &instr, uint32_t wid, instr_trace_t *trace) {
       std::abort();
     }
   } break;
+
+  case Opcode::EXT3: {
+    trace->fu_type = FUType::LSU;
+    trace->lsu_type = LsuType::WMMA;
+
+    auto trace_data = std::make_shared<LsuTraceData>(num_threads);
+    trace->data = trace_data;
+
+
+    std::vector<float> Atile(16*16, 0.0);
+    std::vector<float> Btile(16*16, 0.0);
+    std::vector<float> Ctile(16*16, 0.0);
+    std::vector<float> Dtile(16*16, 0.0);
+
+    // Load from floating point registers into Atile, Btile, and Ctile
+    int tg_rows[] = {0, 8, 0, 8, 4, 12, 4, 12};
+    int tg_cols[] = {0, 0, 8, 8, 0,  0, 8,  8};
+    for (int t = 0; t < 32; t++) {
+      int tg = t / 4;
+      int offset = 16 * (tg_rows[tg] + t % 4) + tg_cols[tg];
+      for (int i = 0; i < 8; i++) {
+        *(uint32_t *)&Atile[offset + i] = warp.freg_file.at(t).at(i);
+        *(uint32_t *)&Ctile[offset + i] = warp.freg_file.at(t).at(16 + i);
+      }
+    }
+    for (int row = 0; row < 16; row++) {
+      for (int col = 0; col < 8; col++) {
+        *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2).at(col + 8);
+      }
+      for (int col = 8; col < 16; col++) {
+        *(uint32_t *)&Btile[16*row + col] = warp.freg_file.at(row * 2 + 1).at(col);
+      }
+    }
+
+    // Perform matmul
+    for (int m = 0; m < 16; m++) {
+      for (int n = 0; n < 16; n++) {
+        float sum = 0.0;
+        for (int k = 0; k < 16; k++) {
+          sum += Atile[16*m + k] * Btile[16*k + n];
+        }
+        Dtile[16*m + n] = sum + Ctile[16*m + n];
+      }
+    }
+
+    // Store Dtile back into floating point registers
+    for (int t = 0; t < 32; t++) {
+      int tg = t / 4;
+      int offset = 16 * (tg_rows[tg] + t % 4) + tg_cols[tg];
+      for (int i = 0; i < 8; i++) {
+         warp.freg_file.at(t).at(24 + i) = *(uint32_t *)&Dtile[offset + i];
+      }
+    }
+
+  } break;
+
   case Opcode::TCU:
   { //TODO - make it data-type flexible
     uint32_t mem_bytes = 1;
