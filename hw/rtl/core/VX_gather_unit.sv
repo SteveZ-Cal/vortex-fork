@@ -22,10 +22,12 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
     input  wire         reset,
 
     // inputs
+    `IGNORE_WARNINGS_BEGIN
     VX_commit_if.slave  commit_in_if [BLOCK_SIZE],
 
     // outputs
     VX_commit_if.master commit_out_if [`ISSUE_WIDTH]
+    `IGNORE_WARNINGS_END
 
 );
     `STATIC_ASSERT (`IS_DIVISBLE(`ISSUE_WIDTH, BLOCK_SIZE), ("invalid parameter"))
@@ -37,9 +39,13 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
     localparam DATA_WIS_OFF = DATAW - (`UUID_WIDTH + `NW_WIDTH);
 
     wire [BLOCK_SIZE-1:0] commit_in_valid;
+    `IGNORE_WARNINGS_BEGIN
     wire [BLOCK_SIZE-1:0][DATAW-1:0] commit_in_data;
+    `IGNORE_WARNINGS_END
     wire [BLOCK_SIZE-1:0] commit_in_ready;
     wire [BLOCK_SIZE-1:0][ISSUE_ISW_W-1:0] commit_in_isw;
+
+    `IGNORE_WARNINGS_BEGIN
 
     for (genvar i = 0; i < BLOCK_SIZE; ++i) begin : g_commit_in
         assign commit_in_valid[i] = commit_in_if[i].valid;
@@ -55,6 +61,7 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
             assign commit_in_isw[i] = BLOCK_SIZE_W'(i);
         end
     end
+    `IGNORE_WARNINGS_END
 
     reg [`ISSUE_WIDTH-1:0] commit_out_valid;
     reg [`ISSUE_WIDTH-1:0][DATAW-1:0] commit_out_data;
@@ -75,10 +82,14 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
         assign commit_in_ready[i] = commit_out_ready[commit_in_isw[i]];
     end
 
+    
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin: g_out_bufs
         VX_commit_if #(
             .NUM_LANES (NUM_LANES)
         ) commit_tmp_if();
+
+        `IGNORE_WARNINGS_BEGIN
+
 
         VX_elastic_buffer #(
             .DATAW   (DATAW),
@@ -94,6 +105,8 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
             .valid_out  (commit_tmp_if.valid),
             .ready_out  (commit_tmp_if.ready)
         );
+
+        `IGNORE_WARNINGS_END
 
         logic [`NUM_THREADS-1:0] commit_tmask_w;
         logic [`NUM_THREADS-1:0][`XLEN-1:0] commit_data_w;
@@ -120,6 +133,7 @@ module VX_gather_unit import VX_gpu_pkg::*; #(
             commit_tmp_if.data.wb,
             commit_tmp_if.data.rd,
             commit_data_w,
+            commit_tmp_if.data.tensor,
             1'b0, // PID
             commit_tmp_if.data.sop,
             commit_tmp_if.data.eop

@@ -49,16 +49,22 @@
 
 `define PERF_CTR_BITS   44
 
-`ifndef NDEBUG
+/*`ifndef NDEBUG
 `define UUID_ENABLE
 `define UUID_WIDTH      44
 `else
-`ifdef SCOPE
-`define UUID_ENABLE
+//`ifdef SCOPE
+//`define UUID_ENABLE
 `define UUID_WIDTH      44
 `else
 `define UUID_WIDTH      1
 `endif
+`endif
+*/
+`ifndef NDEBUG
+`define UUID_WIDTH      44
+`else
+`define UUID_WIDTH      1
 `endif
 
 `define PC_BITS         (`XLEN-1)
@@ -73,6 +79,7 @@
 `define EX_LSU          1
 `define EX_SFU          2
 `define EX_FPU          (`EX_SFU + `EXT_F_ENABLED)
+`define EX_TENSOR       (`EX_FPU + `EXT_T_ENABLED)
 
 `define NUM_EX_UNITS    (3 + `EXT_F_ENABLED)
 `define EX_BITS         `CLOG2(`NUM_EX_UNITS)
@@ -136,6 +143,7 @@
 `define INST_OP_BITS    4
 `define INST_ARGS_BITS   $bits(op_args_t)
 `define INST_FMT_BITS   2
+`define INST_MOD_BITS   4
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -264,6 +272,13 @@
 `define INST_SFU_IS_WCTL(op) (op <= 5)
 `define INST_SFU_IS_CSR(op)  (op >= 6 && op <= 8)
 
+// Need to check the correct locations
+
+`define INST_TENSOR_HMMA       4'b0000
+// Hopper WGMMA-style asynchronous op
+`define INST_TENSOR_HGMMA      4'b0001
+`define INST_TENSOR_HGMMA_WAIT 4'b0010
+
 ///////////////////////////////////////////////////////////////////////////////
 
 `define ARB_SEL_BITS(I, O)  ((I > O) ? `CLOG2(`CDIV(I, O)) : 0)
@@ -323,6 +338,14 @@
 `define TO_FULL_ADDR(x)         {x, (`MEM_ADDR_WIDTH-$bits(x))'(0)}
 
 ///////////////////////////////////////////////////////////////////////////////
+
+`define NC_TAG_BITS             1
+
+`ifdef SM_ENABLE
+`define CACHE_ADDR_TYPE_BITS    (`NC_TAG_BITS + 1)
+`else
+`define CACHE_ADDR_TYPE_BITS    `NC_TAG_BITS
+`endif
 
 `define NEG_EDGE(dst, src) \
     VX_edge_trigger #( \

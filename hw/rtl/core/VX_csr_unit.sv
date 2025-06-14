@@ -40,7 +40,7 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
     `UNUSED_SPARAM (INSTANCE_ID)
     localparam PID_BITS   = `CLOG2(`NUM_THREADS / NUM_LANES);
     localparam PID_WIDTH  = `UP(PID_BITS);
-    localparam DATAW      = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `PC_BITS + `NR_BITS + 1 + NUM_LANES * `XLEN + PID_WIDTH + 1 + 1;
+    localparam DATAW      = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `PC_BITS + `NR_BITS + 1 + NUM_LANES * `XLEN + PID_WIDTH + 1 + 1 ;
 
     `UNUSED_VAR (execute_if.data.rs3_data)
 
@@ -161,7 +161,7 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
     assign sched_csr_if.unlock_warp = csr_req_valid && csr_req_ready && execute_if.data.eop && is_fpu_csr;
     assign sched_csr_if.unlock_wid = execute_if.data.wid;
 
-    VX_elastic_buffer #(
+    /*VX_elastic_buffer #(
         .DATAW (DATAW),
         .SIZE  (2)
     ) rsp_buf (
@@ -174,5 +174,43 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
         .valid_out (commit_if.valid),
         .ready_out (commit_if.ready)
     );
+    */
+
+    /*VX_elastic_buffer #(
+        .DATAW (DATAW),
+        .SIZE  (2)
+    ) rsp_buf (
+        .clk       (clk),
+        .reset     (reset),
+        .valid_in  (csr_req_valid),
+        .ready_in  (csr_req_ready),
+        .data_in   ({execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, csr_read_data,       execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, 1'b0}),
+        .data_out  ({commit_if.data.uuid,  commit_if.data.wid,  commit_if.data.tmask,  commit_if.data.PC,  commit_if.data.rd,  commit_if.data.wb,  commit_if.data.data, commit_if.data.pid,  commit_if.data.sop,  commit_if.data.eop}),
+        .valid_out (commit_if.valid),
+        .ready_out (commit_if.ready)
+    );
+    */
+
+    wire [NUM_LANES-1:0][31:0] csr_commit_data;
+
+    `IGNORE_WARNINGS_BEGIN
+    VX_elastic_buffer #(
+        .DATAW (DATAW),
+        .SIZE  (2)
+    ) rsp_buf (
+        .clk       (clk),
+        .reset     (reset),
+        .valid_in  (csr_req_valid),
+        .ready_in  (csr_req_ready),
+        .data_in   ({execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, csr_read_data, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop}),
+        .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, csr_commit_data, commit_if.data.tensor, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop}),
+        .valid_out (commit_if.valid),
+        .ready_out (commit_if.ready)
+    );
+    `IGNORE_WARNINGS_END
+
+    for (genvar i = 0; i < NUM_LANES; ++i) begin : genblk6
+        assign commit_if.data.data[i] = `XLEN'(csr_commit_data[i]);
+    end
 
 endmodule

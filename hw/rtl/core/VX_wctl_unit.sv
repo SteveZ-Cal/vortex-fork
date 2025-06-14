@@ -140,6 +140,7 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
 
     // response
 
+    
     VX_elastic_buffer #(
         .DATAW (DATAW),
         .SIZE  (2)
@@ -149,10 +150,27 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
         .valid_in  (execute_if.valid),
         .ready_in  (execute_if.ready),
         .data_in   ({execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, {tmc, wspawn, split, sjoin, barrier}, warp_ctl_if.dvstack_ptr}),
-        .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, {tmc_r, wspawn_r, split_r, sjoin_r, barrier_r}, dvstack_ptr}),
+        //.data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, {tmc_r, wspawn_r, split_r, sjoin_r, barrier_r}, dvstack_ptr}),
+        .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.pid, commit_if.data.sop, {tmc_r, wspawn_r, split_r, sjoin_r, barrier_r}, dvstack_ptr}),
         .valid_out (commit_if.valid),
         .ready_out (commit_if.ready)
     );
+
+    /*
+        VX_elastic_buffer #(
+        .DATAW (DATAW),
+        .SIZE  (2)
+    ) rsp_buf (
+        .clk       (clk),
+        .reset     (reset),
+        .valid_in  (execute_if.valid),
+        .ready_in  (execute_if.ready),
+        .data_in   ({execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, 1'b0, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, {tmc, wspawn, split, sjoin, barrier}}),
+        .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.tensor, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, {tmc_r, wspawn_r, split_r, sjoin_r, barrier_r}}),
+        .valid_out (commit_if.valid),
+        .ready_out (commit_if.ready)
+    );
+    */
 
     assign warp_ctl_if.valid   = commit_if.valid && commit_if.ready && commit_if.data.eop;
     assign warp_ctl_if.wid     = commit_if.data.wid;

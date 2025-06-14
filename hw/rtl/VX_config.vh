@@ -98,11 +98,11 @@
 `endif
 
 `ifndef NUM_WARPS
-`define NUM_WARPS 4
+`define NUM_WARPS 8
 `endif
 
 `ifndef NUM_THREADS
-`define NUM_THREADS 4
+`define NUM_THREADS 32
 `endif
 
 `ifndef NUM_BARRIERS
@@ -146,6 +146,12 @@
 `ifdef L1_DISABLE
     `define ICACHE_DISABLE
     `define DCACHE_DISABLE
+`endif
+
+`ifdef LSU_DUP_ENABLE
+`define LSU_DUP_ENABLED 1
+`else
+`define LSU_DUP_ENABLED 0
 `endif
 
 `ifndef MEM_BLOCK_SIZE
@@ -367,7 +373,7 @@
 
 // Issue width
 `ifndef ISSUE_WIDTH
-`define ISSUE_WIDTH     `UP(`NUM_WARPS / 8)
+`define ISSUE_WIDTH     `UP(`NUM_WARPS)
 `endif
 
 // Number of ALU units
@@ -420,6 +426,11 @@
 // Size of LSU Memory Request Queue
 `ifndef LSUQ_OUT_SIZE
 `define LSUQ_OUT_SIZE   `MAX(`LSUQ_IN_SIZE, `LSU_LINE_SIZE / (`XLEN / 8))
+`endif
+
+// Size of LSU Request Queue
+`ifndef LSUQ_SIZE
+`define LSUQ_SIZE   (4 * `NUM_WARPS * (`NUM_THREADS / `NUM_LSU_LANES))
 `endif
 
 `ifdef GBAR_ENABLE
@@ -513,6 +524,11 @@
 `define LATENCY_FSQRT 16
 `endif
 `endif
+`endif
+
+// Tensor Core Latency
+`ifndef LATENCY_HMMA
+`define LATENCY_HMMA 4
 `endif
 
 // FCVT Latency
@@ -625,6 +641,8 @@
 `ifndef DCACHE_SIZE
 `define DCACHE_SIZE 16384
 `endif
+
+
 
 // Number of Banks
 `ifndef DCACHE_NUM_BANKS
@@ -844,6 +862,12 @@
     `define EXT_F_ENABLED   1
 `else
     `define EXT_F_ENABLED   0
+`endif
+
+`ifdef EXT_T_ENABLE
+    `define EXT_T_ENABLED   1
+`else
+    `define EXT_T_ENABLED   0
 `endif
 
 `ifdef EXT_M_ENABLE

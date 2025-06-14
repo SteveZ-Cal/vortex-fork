@@ -195,6 +195,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+
+`define OUT_REG_TO_EB_REG(out_reg)    ((out_reg & 1) + ((out_reg >> 2) << 1))
+`define OUT_REG_TO_EB_SIZE(out_reg)   `MIN(out_reg, 2)
 `define STRINGIFY(x) `"x`"
 
 `define CLOG2(x)    $clog2(x)

@@ -20,10 +20,13 @@ module VX_commit import VX_gpu_pkg::*; #(
     input wire              reset,
 
     // inputs
-    VX_commit_if.slave      commit_if [`NUM_EX_UNITS * `ISSUE_WIDTH],
+    `IGNORE_WARNINGS_BEGIN
 
+    VX_commit_if.slave      commit_if [`NUM_EX_UNITS * `ISSUE_WIDTH],
     // outputs
     VX_writeback_if.master  writeback_if  [`ISSUE_WIDTH],
+    `IGNORE_WARNINGS_END
+
     VX_commit_csr_if.master commit_csr_if,
     VX_commit_sched_if.master commit_sched_if
 );
@@ -47,11 +50,15 @@ module VX_commit import VX_gpu_pkg::*; #(
         wire [`NUM_EX_UNITS-1:0][DATAW-1:0] data_in;
         wire [`NUM_EX_UNITS-1:0]            ready_in;
 
+        `IGNORE_WARNINGS_BEGIN
+
+
         for (genvar j = 0; j < `NUM_EX_UNITS; ++j) begin : g_data_in
             assign valid_in[j] = commit_if[j * `ISSUE_WIDTH + i].valid;
             assign data_in[j]  = commit_if[j * `ISSUE_WIDTH + i].data;
             assign commit_if[j * `ISSUE_WIDTH + i].ready = ready_in[j];
         end
+
 
         VX_stream_arb #(
             .NUM_INPUTS (`NUM_EX_UNITS),
@@ -69,6 +76,8 @@ module VX_commit import VX_gpu_pkg::*; #(
             .ready_out  (commit_arb_if[i].ready),
             `UNUSED_PIN (sel_out)
         );
+
+        `IGNORE_WARNINGS_END
 
         assign per_issue_commit_fire[i] = commit_arb_if[i].valid && commit_arb_if[i].ready;
         assign per_issue_commit_tmask[i]= {`NUM_THREADS{per_issue_commit_fire[i]}} & commit_arb_if[i].data.tmask;
@@ -160,6 +169,9 @@ module VX_commit import VX_gpu_pkg::*; #(
 
     // Writeback
 
+    `IGNORE_WARNINGS_BEGIN
+
+
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin : g_writeback
         assign writeback_if[i].valid     = commit_arb_if[i].valid && commit_arb_if[i].data.wb;
         assign writeback_if[i].data.uuid = commit_arb_if[i].data.uuid;
@@ -172,6 +184,8 @@ module VX_commit import VX_gpu_pkg::*; #(
         assign writeback_if[i].data.eop  = commit_arb_if[i].data.eop;
         assign commit_arb_if[i].ready = 1'b1; // writeback has no backpressure
     end
+
+            `IGNORE_WARNINGS_END
 
 `ifdef DBG_TRACE_PIPELINE
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin : g_trace

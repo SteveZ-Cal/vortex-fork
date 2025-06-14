@@ -15,7 +15,8 @@
 
 module VX_execute import VX_gpu_pkg::*; #(
     parameter `STRING INSTANCE_ID = "",
-    parameter CORE_ID = 0
+    parameter CORE_ID = 0,
+    parameter TENSOR_FP16 = 0
 ) (
     `SCOPE_IO_DECL
 
@@ -43,6 +44,19 @@ module VX_execute import VX_gpu_pkg::*; #(
     VX_branch_ctl_if.master branch_ctl_if [`NUM_ALU_BLOCKS],
     VX_warp_ctl_if.master   warp_ctl_if,
 
+    // tensor interfaces
+
+//`ifdef EXT_T_ENABLE
+//    VX_dispatch_if.slave    tensor_dispatch_if [`ISSUE_WIDTH],
+//    VX_commit_if.master     tensor_commit_if [`ISSUE_WIDTH],
+
+//`ifdef EXT_T_HOPPER
+//    VX_tc_rf_if.master      tensor_regfile_if,
+//    VX_tc_bus_if.master     tensor_smem_A_if,
+//    VX_tc_bus_if.master     tensor_smem_B_if,
+//`endif
+//`endif
+
     // commit interface
     VX_commit_csr_if.slave  commit_csr_if
 );
@@ -63,6 +77,7 @@ module VX_execute import VX_gpu_pkg::*; #(
 
     `SCOPE_IO_SWITCH (1);
 
+    `IGNORE_WARNINGS_BEGIN
     VX_lsu_unit #(
         .INSTANCE_ID (`SFORMATF(("%s-lsu", INSTANCE_ID)))
     ) lsu_unit (
@@ -73,6 +88,7 @@ module VX_execute import VX_gpu_pkg::*; #(
         .commit_if      (commit_if[`EX_LSU * `ISSUE_WIDTH +: `ISSUE_WIDTH]),
         .lsu_mem_if     (lsu_mem_if)
     );
+    `IGNORE_WARNINGS_END
 
 `ifdef EXT_F_ENABLE
     VX_fpu_unit #(
@@ -85,6 +101,24 @@ module VX_execute import VX_gpu_pkg::*; #(
         .fpu_csr_if     (fpu_csr_if)
     );
 `endif
+
+//`ifdef EXT_T_ENABLE
+    VX_tensor_core #(
+        .FP16 (TENSOR_FP16)
+    ) tensor_core (
+        .clk(clk),
+        .reset(reset),
+
+        .dispatch_if(dispatch_if[`EX_TENSOR * `ISSUE_WIDTH +: `ISSUE_WIDTH]),
+//`ifdef EXT_T_HOPPER
+//        .regfile_if(tensor_regfile_if),
+//        .smem_A_if(tensor_smem_A_if),
+//        .smem_B_if(tensor_smem_B_if),
+//`endif
+        .commit_if(commit_if[`EX_TENSOR * `ISSUE_WIDTH +: `ISSUE_WIDTH])
+    );
+//`endif
+
 
     VX_sfu_unit #(
         .INSTANCE_ID (`SFORMATF(("%s-sfu", INSTANCE_ID))),

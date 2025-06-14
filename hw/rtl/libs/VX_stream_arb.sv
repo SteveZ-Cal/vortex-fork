@@ -18,7 +18,7 @@ module VX_stream_arb #(
     parameter NUM_INPUTS    = 1,
     parameter NUM_OUTPUTS   = 1,
     parameter DATAW         = 1,
-    parameter `STRING ARBITER = "R",
+    parameter `STRING ARBITER = "P",
     parameter MAX_FANOUT    = `MAX_FANOUT,
     parameter OUT_BUF       = 0,
     parameter NUM_REQS      = (NUM_INPUTS > NUM_OUTPUTS) ? `CDIV(NUM_INPUTS, NUM_OUTPUTS) : `CDIV(NUM_OUTPUTS, NUM_INPUTS),
@@ -36,6 +36,7 @@ module VX_stream_arb #(
     output wire [NUM_OUTPUTS-1:0]            valid_out,
     output wire [NUM_OUTPUTS-1:0][DATAW-1:0] data_out,
     input  wire [NUM_OUTPUTS-1:0]            ready_out,
+    //output wire [NUM_OUTPUTS-1:0][NUM_REQS_W-1:0] sel_out,
 
     output wire [SEL_COUNT-1:0][NUM_REQS_W-1:0] sel_out
 );

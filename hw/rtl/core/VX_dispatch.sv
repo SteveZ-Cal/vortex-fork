@@ -27,6 +27,7 @@ module VX_dispatch import VX_gpu_pkg::*; #(
 
     // outputs
     VX_dispatch_if.master   dispatch_if [`NUM_EX_UNITS]
+    //VX_dispatch_if.master   tensor_dispatch_if [`ISSUE_WIDTH]
 );
     `UNUSED_SPARAM (INSTANCE_ID)
 
@@ -49,9 +50,10 @@ module VX_dispatch import VX_gpu_pkg::*; #(
         .data_out (last_active_tid),
         `UNUSED_PIN (valid_out)
     );
-
     wire [`NUM_EX_UNITS-1:0] operands_ready_in;
     assign operands_if.ready = operands_ready_in[operands_if.data.ex_type];
+//    assign operands_if.ready = operands_ready_in[operands_if.data.ex_type] 
+//                                || (tensor_operands_if.ready && (operands_if.data.ex_type == `EX_TENSOR));
 
     for (genvar i = 0; i < `NUM_EX_UNITS; ++i) begin : g_buffers
         VX_elastic_buffer #(
@@ -99,5 +101,33 @@ module VX_dispatch import VX_gpu_pkg::*; #(
         assign perf_stalls[i] = perf_stalls_r[i];
     end
 `endif
+
+
+// Tensor Core dispatch
+// Dont need to add this ( no change to dispatch )
+
+//VX_operands_if tensor_operands_if[`ISSUE_WIDTH]();
+//
+//    for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
+//        assign tensor_operands_if[i].valid = operands_if[i].valid && (operands_if[i].data.ex_type == `EX_TENSOR);
+//        assign tensor_operands_if[i].data = operands_if[i].data;
+
+//        `RESET_RELAY (tensor_reset, reset);
+
+//       VX_elastic_buffer #(
+//            .DATAW   (DATAW),
+//            .SIZE    (2),
+//            .OUT_REG (2)
+//        ) tensor_buffer (
+//            .clk        (clk),
+//            .reset      (tensor_reset),
+//            .valid_in   (tensor_operands_if[i].valid),
+//            .ready_in   (tensor_operands_if[i].ready),
+//            .data_in    (`TO_DISPATCH_DATA(tensor_operands_if[i].data, last_active_tid[i])),           
+//            .data_out   (tensor_dispatch_if[i].data),
+//            .valid_out  (tensor_dispatch_if[i].valid),
+//            .ready_out  (tensor_dispatch_if[i].ready)
+//        );
+//    end
 
 endmodule

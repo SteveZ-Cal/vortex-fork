@@ -246,6 +246,9 @@ module VX_fpu_unit import VX_fpu_pkg::*; #(
 
         // send response
 
+        `IGNORE_WARNINGS_BEGIN
+
+
         VX_elastic_buffer #(
             .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `PC_BITS + `NR_BITS + (NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1),
             .SIZE  (0)
@@ -259,6 +262,8 @@ module VX_fpu_unit import VX_fpu_pkg::*; #(
             .valid_out (per_block_commit_if[block_idx].valid),
             .ready_out (per_block_commit_if[block_idx].ready)
         );
+
+        `IGNORE_WARNINGS_END
         assign per_block_commit_if[block_idx].data.wb = 1'b1;
     end
 

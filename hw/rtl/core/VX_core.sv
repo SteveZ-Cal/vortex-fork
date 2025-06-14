@@ -57,6 +57,9 @@ module VX_core import VX_gpu_pkg::*; #(
     VX_dispatch_if      dispatch_if[`NUM_EX_UNITS * `ISSUE_WIDTH]();
     VX_commit_if        commit_if[`NUM_EX_UNITS * `ISSUE_WIDTH]();
     VX_writeback_if     writeback_if[`ISSUE_WIDTH]();
+    
+    //VX_dispatch_if      tensor_dispatch_if[`ISSUE_WIDTH]();
+    //VX_commit_if        tensor_commit_if[`ISSUE_WIDTH]();
 
     VX_lsu_mem_if #(
         .NUM_LANES (`NUM_LSU_LANES),
@@ -179,6 +182,7 @@ module VX_core import VX_gpu_pkg::*; #(
 
         .warp_ctl_if    (warp_ctl_if),
         .branch_ctl_if  (branch_ctl_if)
+        
     );
 
     VX_commit #(

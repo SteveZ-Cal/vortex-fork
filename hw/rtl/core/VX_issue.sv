@@ -13,6 +13,9 @@
 
 `include "VX_define.vh"
 
+// no need to modify this code
+// only execute should chnage , dispatch, issue, scoreboard will automatically 
+
 module VX_issue import VX_gpu_pkg::*; #(
     parameter `STRING INSTANCE_ID = ""
 ) (
@@ -28,6 +31,10 @@ module VX_issue import VX_gpu_pkg::*; #(
     VX_decode_if.slave      decode_if,
     VX_writeback_if.slave   writeback_if [`ISSUE_WIDTH],
     VX_dispatch_if.master   dispatch_if [`NUM_EX_UNITS * `ISSUE_WIDTH]
+
+//    VX_dispatch_if.master   tensor_dispatch_if [`ISSUE_WIDTH],
+//    VX_tc_rf_if.slave       tensor_regfile_if,
+
 );
     `STATIC_ASSERT ((`ISSUE_WIDTH <= `NUM_WARPS), ("invalid parameter"))
 

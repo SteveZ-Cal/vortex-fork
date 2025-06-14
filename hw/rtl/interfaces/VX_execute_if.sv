@@ -18,13 +18,18 @@ interface VX_execute_if import VX_gpu_pkg::*; #(
     parameter PID_WIDTH = `LOG2UP(`NUM_THREADS / NUM_LANES)
 );
     typedef struct packed {
-        logic [`UUID_WIDTH-1:0]         uuid;
+
+    /*   logic [`UUID_WIDTH-1:0]         uuid;                
         logic [`NW_WIDTH-1:0]           wid;
-        logic [NUM_LANES-1:0]           tmask;
-        logic [`PC_BITS-1:0]            PC;
+        logic [NUM_LANES-1:0]           tmask;       
         logic [`INST_ALU_BITS-1:0]      op_type;
+        logic [`INST_MOD_BITS-1:0]      op_mod;
         op_args_t                       op_args;
         logic                           wb;
+        logic                           use_PC;
+        logic                           use_imm;
+        logic [`XLEN-1:0]               PC;
+        logic [`XLEN-1:0]               imm;
         logic [`NR_BITS-1:0]            rd;
         logic [`NT_WIDTH-1:0]           tid;
         logic [NUM_LANES-1:0][`XLEN-1:0] rs1_data;
@@ -33,6 +38,29 @@ interface VX_execute_if import VX_gpu_pkg::*; #(
         logic [PID_WIDTH-1:0]           pid;
         logic                           sop;
         logic                           eop;
+        */
+
+
+        logic [`UUID_WIDTH-1:0]         uuid;
+        logic [`NW_WIDTH-1:0]           wid;
+        logic [NUM_LANES-1:0]           tmask;
+        logic [`PC_BITS-1:0]            PC;
+        logic [`XLEN-1:0]               imm;
+        logic [`INST_ALU_BITS-1:0]      op_type;
+        logic [`INST_MOD_BITS-1:0]      op_mod;
+        op_args_t                       op_args;
+        logic                           wb;
+        //logic                           use_PC;
+        //logic                           use_imm;        
+        logic [`NR_BITS-1:0]            rd;
+        logic [`NT_WIDTH-1:0]           tid;
+        logic [NUM_LANES-1:0][`XLEN-1:0] rs1_data;
+        logic [NUM_LANES-1:0][`XLEN-1:0] rs2_data;
+        logic [NUM_LANES-1:0][`XLEN-1:0] rs3_data;
+        logic [PID_WIDTH-1:0]           pid;
+        logic                           sop;
+        logic                           eop;
+
     } data_t;
 
     logic  valid;

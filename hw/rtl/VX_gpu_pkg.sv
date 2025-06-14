@@ -219,10 +219,22 @@ package VX_gpu_pkg;
     // Core request tag Id bits
     localparam DCACHE_MERGED_REQS   = (`NUM_LSU_LANES * LSU_WORD_SIZE) / DCACHE_WORD_SIZE;
     localparam DCACHE_MEM_BATCHES   = `CDIV(DCACHE_MERGED_REQS, DCACHE_CHANNELS);
-    localparam DCACHE_TAG_ID_BITS   = (`CLOG2(`LSUQ_OUT_SIZE) + `CLOG2(DCACHE_MEM_BATCHES));
+//    localparam DCACHE_TAG_ID_BITS   = (`CLOG2(`LSUQ_OUT_SIZE) + `CLOG2(DCACHE_MEM_BATCHES));
+
+
+
+    // Core request tag Id bits
+    localparam LSUQ_TAG_BITS	    = (`CLOG2(`LSUQ_SIZE) + DCACHE_BATCH_SEL_BITS);
+    localparam DCACHE_TAG_ID_BITS	= (LSUQ_TAG_BITS + `CACHE_ADDR_TYPE_BITS);
+    localparam LSU_MEM_REQS	        = `NUM_LSU_LANES;
 
     // Core request tag bits
     localparam DCACHE_TAG_WIDTH	    = (`UUID_WIDTH + DCACHE_TAG_ID_BITS);
+
+    // Batch select bits
+    localparam DCACHE_NUM_BATCHES	= ((LSU_MEM_REQS + DCACHE_NUM_REQS - 1) / DCACHE_NUM_REQS);
+    localparam DCACHE_BATCH_SEL_BITS = `CLOG2(DCACHE_NUM_BATCHES);
+
 
     // Memory request data bits
     localparam DCACHE_MEM_DATA_WIDTH = (DCACHE_LINE_SIZE * 8);
@@ -284,6 +296,8 @@ package VX_gpu_pkg;
 `else
     localparam L3_MEM_TAG_WIDTH     = `CACHE_BYPASS_TAG_WIDTH(L3_NUM_REQS, `L3_MEM_PORTS, `L3_LINE_SIZE, L3_WORD_SIZE, L3_TAG_WIDTH);
 `endif
+
+
 
     /////////////////////////////// Issue parameters //////////////////////////
 
@@ -357,6 +371,9 @@ package VX_gpu_pkg;
         `ifdef EXT_F_ENABLE
             `EX_FPU: `TRACE(level, ("FPU"))
         `endif
+        `ifdef EXT_T_ENABLE
+            `EX_TENSOR: `TRACE(level, ("TENSOR"))
+        `endif
             default: `TRACE(level, ("?"))
         endcase
     endtask
@@ -367,6 +384,9 @@ package VX_gpu_pkg;
                      input VX_gpu_pkg::op_args_t op_args
     );
         case (ex_type)
+        `EX_TENSOR: begin
+        
+        end
         `EX_ALU: begin
             case (op_args.alu.xtype)
                 `ALU_TYPE_ARITH: begin

@@ -135,11 +135,15 @@ module VX_alu_int #(
 
     wire [`PC_BITS-1:0] PC_r;
     wire [`INST_BR_BITS-1:0] br_op_r;
-    wire [`PC_BITS-1:0] cbr_dest, cbr_dest_r;
+    //wire [`PC_BITS-1:0] cbr_dest ;
+    //wire [`PC_BITS-1:0] cbr_dest_r;
     wire [LANE_WIDTH-1:0] tid, tid_r;
     wire is_br_op_r;
+    `IGNORE_WARNINGS_BEGIN
+    wire [`XLEN-1:0] imm_r;
+    `IGNORE_WARNINGS_END
 
-    assign cbr_dest = add_result[0][1 +: `PC_BITS];
+    //assign cbr_dest = add_result[0][1 +: `PC_BITS];
 
     if (LANE_BITS != 0) begin : g_tid
         assign tid = execute_if.data.tid[0 +: LANE_BITS];
@@ -147,7 +151,21 @@ module VX_alu_int #(
         assign tid = 0;
     end
 
+
     VX_elastic_buffer #(
+        .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `NR_BITS + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * `XLEN) + `XLEN + `XLEN + 1 + `INST_BR_BITS + LANE_WIDTH)
+    ) rsp_buf (
+        .clk      (clk),
+        .reset    (reset),
+        .valid_in (execute_if.valid),
+        .ready_in (execute_if.ready),
+        .data_in  ({execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, 1'b0, alu_result, execute_if.data.PC, execute_if.data.imm, is_br_op, br_op, tid}),
+        .data_out ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.rd, commit_if.data.wb, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, commit_if.data.tensor, alu_result_r, PC_r, imm_r, is_br_op_r, br_op_r, tid_r}),
+        .valid_out (commit_if.valid),
+        .ready_out (commit_if.ready)
+    );
+
+/*    VX_elastic_buffer #(
         .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `NR_BITS + 1 + PID_WIDTH + 1 + 1 + (NUM_LANES * `XLEN) + `PC_BITS + `PC_BITS + 1 + `INST_BR_BITS + LANE_WIDTH)
     ) rsp_buf (
         .clk      (clk),
@@ -159,6 +177,7 @@ module VX_alu_int #(
         .valid_out (commit_if.valid),
         .ready_out (commit_if.ready)
     );
+*/
 
     `UNUSED_VAR (br_op_r)
     wire is_br_neg  = `INST_BR_IS_NEG(br_op_r);
@@ -171,7 +190,8 @@ module VX_alu_int #(
 
     wire br_enable = is_br_op_r && commit_if.valid && commit_if.ready && commit_if.data.eop;
     wire br_taken = ((is_br_less ? is_less : is_equal) ^ is_br_neg) | is_br_static;
-    wire [`PC_BITS-1:0] br_dest = is_br_static ? br_result[1 +: `PC_BITS] : cbr_dest_r;
+    //wire [`PC_BITS-1:0] br_dest = is_br_static ? br_result[1 +: `PC_BITS] : cbr_dest_r;
+    wire [`PC_BITS-1:0] br_dest =  br_result[1 +: `PC_BITS] ;
     wire [`NW_WIDTH-1:0] br_wid;
     `ASSIGN_BLOCKED_WID (br_wid, commit_if.data.wid, BLOCK_IDX, `NUM_ALU_BLOCKS)
 
@@ -189,7 +209,7 @@ module VX_alu_int #(
         assign commit_if.data.data[i] = (is_br_op_r && is_br_static) ? {(PC_r + `PC_BITS'(2)), 1'd0} : alu_result_r[i];
     end
 
-    assign commit_if.data.PC = PC_r;
+    assign commit_if.data.PC = {PC_r,1'b0};
 
 `ifdef DBG_TRACE_PIPELINE
     always @(posedge clk) begin

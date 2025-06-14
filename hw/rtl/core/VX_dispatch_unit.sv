@@ -278,7 +278,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 execute_data_w[2:0] = {1'b0, 1'b1, 1'b1}; // default pid, sop, and eop
             end
         end
-        assign execute_if[block_idx].data = execute_data_w;
+        assign execute_if[block_idx].data = {execute_data_w,68'b0};
     end
 
     reg [`ISSUE_WIDTH-1:0] ready_in;

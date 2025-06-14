@@ -321,7 +321,29 @@ module VX_alu_muldiv #(
     // can accept new request?
     assign execute_if.ready = is_mulx_op ? mul_ready_in : div_ready_in;
 
+    localparam TAGW = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + `NR_BITS + 1 + PID_WIDTH + 1 + 1;
+   
+    `IGNORE_WARNINGS_BEGIN
     VX_stream_arb #(
+        .NUM_INPUTS (2),
+        .DATAW (1/*tensor field only in commit*/ + TAGW + (NUM_LANES * `XLEN)),
+        .ARBITER ("P"),
+        .OUT_BUF (2)
+    ) rsp_buf (
+        .clk       (clk),
+        .reset     (reset),
+        .valid_in  ({div_valid_out, mul_valid_out}),
+        .ready_in  ({div_ready_out, mul_ready_out}),
+        .data_in   ({{div_uuid_out, div_wid_out, div_tmask_out, div_PC_out, div_rd_out, div_wb_out, 1'b0/*tensor*/, div_pid_out, div_sop_out, div_eop_out, div_result_out},
+                     {mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, 1'b0/*tensor*/, mul_pid_out, mul_sop_out, mul_eop_out, mul_result_out}}),
+        .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.tensor, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, commit_if.data.data}),
+        .valid_out (commit_if.valid),
+        .ready_out (commit_if.ready),
+        `UNUSED_PIN (sel_out)
+    );
+    `IGNORE_WARNINGS_END
+
+ /*   VX_stream_arb #(
         .NUM_INPUTS (2),
         .DATAW (TAG_WIDTH + (NUM_LANES * `XLEN)),
         .ARBITER ("P"),
@@ -338,5 +360,5 @@ module VX_alu_muldiv #(
         .ready_out (commit_if.ready),
         `UNUSED_PIN (sel_out)
     );
-
+*/
 endmodule

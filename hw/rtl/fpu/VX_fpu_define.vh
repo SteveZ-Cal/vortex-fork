@@ -17,7 +17,9 @@
 `include "VX_define.vh"
 
 `ifdef SV_DPI
+`ifndef FPU_FPNEW
 `include "float_dpi.vh"
+`endif
 `endif
 
 `define FPU_MERGE_FFLAGS(out, in, mask, lanes) \

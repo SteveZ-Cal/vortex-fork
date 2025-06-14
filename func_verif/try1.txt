@@ -1,0 +1,13 @@
+sagarj@SAGAR:~/CS259_graphics/Project/SpT-Vortex/func_verif$ vvp simv2
+
+Test Case 1: Basic Matrix Operation
+D_tile[0] = 00000001 00000002 00000000 00000000
+D_tile[1] = 00000003 00000004 00000000 00000000
+D_tile[2] = 00000005 00000006 00000000 00000000
+D_tile[3] = 00000007 00000008 00000000 00000000
+D_wid = 00000001
+
+Test Case 2: With Stall
+D_tile[3][1] after stall = 00000009
+
+Testbench completed

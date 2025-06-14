@@ -461,10 +461,13 @@ module VX_lsu_slice import VX_gpu_pkg::*; #(
         .valid_in  (mem_rsp_valid),
         .ready_in  (mem_rsp_ready),
         .data_in   ({rsp_uuid, rsp_wid, mem_rsp_mask, rsp_pc, rsp_wb, rsp_rd, rsp_data, rsp_pid, mem_rsp_sop_pkt, mem_rsp_eop_pkt}),
-        .data_out  ({commit_rsp_if.data.uuid, commit_rsp_if.data.wid, commit_rsp_if.data.tmask, commit_rsp_if.data.PC, commit_rsp_if.data.wb, commit_rsp_if.data.rd, commit_rsp_if.data.data, commit_rsp_if.data.pid, commit_rsp_if.data.sop, commit_rsp_if.data.eop}),
+        //.data_out  ({commit_rsp_if.data.uuid, commit_rsp_if.data.wid, commit_rsp_if.data.tmask, commit_rsp_if.data.PC, commit_rsp_if.data.wb, commit_rsp_if.data.rd, commit_rsp_if.data.data, commit_rsp_if.data.pid, commit_rsp_if.data.sop, commit_rsp_if.data.eop}),
+        .data_out  ({commit_rsp_if.data.uuid, commit_rsp_if.data.wid, commit_rsp_if.data.tmask, commit_rsp_if.data.PC, commit_rsp_if.data.wb, commit_rsp_if.data.rd, commit_rsp_if.data.data, commit_rsp_if.data.pid, commit_rsp_if.data.sop}),
         .valid_out (commit_rsp_if.valid),
         .ready_out (commit_rsp_if.ready)
     );
+
+    `IGNORE_WARNINGS_BEGIN
 
     VX_elastic_buffer #(
         .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `PC_BITS + PID_WIDTH + 1 + 1),
@@ -480,9 +483,21 @@ module VX_lsu_slice import VX_gpu_pkg::*; #(
         .ready_out (commit_no_rsp_if.ready)
     );
 
+    `IGNORE_WARNINGS_END
+
     assign commit_no_rsp_if.data.rd   = '0;
     assign commit_no_rsp_if.data.wb   = 1'b0;
     assign commit_no_rsp_if.data.data = commit_rsp_if.data.data; // arbiter MUX optimization
+
+    //wire [4399:0] data_in_new;
+    //`IGNORE_WARNINGS_BEGIN
+    //wire [2199:0] data_out_new;
+    //`IGNORE_WARNINGS_END
+
+    //assign data_in_new = 4400'b0;
+    //assign data_out_new = 2200'b0;
+
+    `IGNORE_WARNINGS_BEGIN
 
     VX_stream_arb #(
         .NUM_INPUTS (2),
@@ -496,10 +511,14 @@ module VX_lsu_slice import VX_gpu_pkg::*; #(
         .ready_in  ({commit_no_rsp_if.ready, commit_rsp_if.ready}),
         .data_in   ({commit_no_rsp_if.data, commit_rsp_if.data}),
         .data_out  (commit_if.data),
+//        .data_in   (data_in_new),//{commit_no_rsp_if.data, commit_rsp_if.data}),
+//        .data_out  (data_out_new),
         .valid_out (commit_if.valid),
         .ready_out (commit_if.ready),
         `UNUSED_PIN (sel_out)
     );
+
+    `IGNORE_WARNINGS_END
 
 `ifdef DBG_TRACE_MEM
     always @(posedge clk) begin
